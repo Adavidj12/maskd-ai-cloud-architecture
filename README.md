@@ -65,3 +65,21 @@ To protect production integrity, environment variables are completely decoupled 
 *   **Security & Identity Keys:** `CLERK_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 *   **Orchestration Configurations:** `AI_PROVIDER_FALLBACKS`, `PROVIDER_FAILURE_COOLDOWN_MS`
 *   **Payment & Webhook Verification:** `BLOCKONOMICS_CALLBACK_SECRET`, `DECART_API_KEY`
+
+---
+
+## 🛠️ Production Troubleshooting & Engineering Interventions
+
+During the deployment of MASKD across a distributed architecture, I isolated and resolved critical infrastructure errors to stabilize the production pipeline:
+
+### 1. Cross-Origin Resource Sharing (CORS) Blocks
+*   **The Issue:** The React client hosted on Vercel (`maskd-ai.vercel.app`) was blocked from communicating with the Express API server deployed on Render. Web browsers blocked incoming stream data payloads due to missing cross-origin permission boundaries.
+*   **The Resolution:** I modified the Node.js backend configuration to utilize the `cors` middleware dynamically. I explicitly whitelisted the production Vercel frontend URL within the `FRONTEND_ORIGIN` environment array, configured specific allowed methods (`GET, POST, OPTIONS`), and enabled `credentials: true` to pass secure Clerk authentication tokens safely across domains.
+
+### 2. Runtime Environment Variable Validation Failures
+*   **The Issue:** Initial backend container deployments on Render crashed immediately with undefined reference errors because critical cryptographic keys (`CLERK_SECRET_KEY`, `DECART_API_KEY`) were not being injected before the startup scripts initialized.
+*   **The Resolution:** I restructured the backend startup sequence by creating an initial validation script using environment checking layers. I synchronized the deployment dashboards across Render and Vercel, ensuring that every secret listed in the architecture requirements was manually bound to the production server runtime environment rather than hardcoded into source repositories.
+
+### 3. Database Connection & Cold-Start Delays
+*   **The Issue:** Due to inactivity periods during initial beta testing, the serverless Supabase PostgreSQL database would enter hibernation mode. This caused subsequent user requests to time out while waiting for the database to wake up.
+*   **The Resolution:** I integrated **UptimeRobot** to act as an automated synthetic monitoring tool. I configured it to run lightweight, automated HTTP ping traffic directly to the server every 5 minutes. This keep-alive configuration maintains the connection line constantly, guaranteeing immediate database response times for active users entering the stream studio.
